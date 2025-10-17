@@ -34,7 +34,7 @@ def query_model(question: str, max_tokens: int = 512, temperature: float = 0.01)
     Send request to vLLM server using OpenAI-compatible API.
     """
     payload = {
-        "model": "taskd_merged_model",  # Can be any string when using vllm serve
+        "model": "./taskd-technical-challenge/taskd_merged_model",  # Can be any string when using vllm serve
         "messages": [
             {"role": "user", "content": question}
         ],
