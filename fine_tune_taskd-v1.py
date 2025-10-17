@@ -26,6 +26,7 @@ parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate (defau
 parser.add_argument('--lora_rank', type=int, default=64, help='LoRA rank (default: 64)')
 parser.add_argument('--lr_type', type=str, default="cosine", help='learning rate annealing type')
 parser.add_argument('--weight_decay', type=float, default=0.01, help='weight decay for optimizer')
+parser.add_argument('--run_name', type=str, default="taskd-llama-finetune-v4", help='name of run in wandb')
 
 args = parser.parse_args()
 
@@ -239,7 +240,7 @@ training_args = TrainingArguments(
 
     # Weights & Biases integration
     report_to="wandb",
-    run_name="taskd-llama-finetune-v3-aggressive",
+    run_name=args.run_name,
 )
 
 # ============================================================================
