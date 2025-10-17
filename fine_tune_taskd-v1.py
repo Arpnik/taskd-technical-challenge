@@ -17,9 +17,9 @@ import wandb  # Optional: for experiment tracking
 # STEP 3: Configure Weights & Biases (OPTIONAL)
 # ============================================================================
 # FIXED: Increased epochs significantly for small dataset
-EPOCHS = 50  # Changed from 15 to 50 - with 5 examples, you need many more passes
-LR = 2e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
-LORA_RANK = 32
+EPOCHS = 100  # Changed from 15 to 50 - with 5 examples, you need many more passes
+LR = 5e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
+LORA_RANK = 64
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
 run = wandb.init(
     project="taskd-llama-finetune",
@@ -64,7 +64,7 @@ model = FastLanguageModel.get_peft_model(
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
     ],
-    lora_alpha=LORA_RANK,
+    lora_alpha=LORA_RANK*2,
     lora_dropout=0,
     bias="none",
     use_gradient_checkpointing="unsloth",
@@ -203,16 +203,16 @@ print("\nConfiguring training arguments...")
 
 training_args = TrainingArguments(
     per_device_train_batch_size=1,
-    gradient_accumulation_steps=1,  # FIXED: Changed from 8 to 1 - update more frequently
+    gradient_accumulation_steps=1,
     warmup_steps=5,
-    num_train_epochs=EPOCHS,  # Now 50 epochs
-    learning_rate=LR,  # Now 2e-4
+    num_train_epochs=EPOCHS,
+    learning_rate=LR,
     fp16=not is_bfloat16_supported(),
     bf16=is_bfloat16_supported(),
     logging_steps=1,
     optim="adamw_8bit",
-    weight_decay=0.01,
-    lr_scheduler_type="linear",  # FIXED: Changed from cosine to linear for small dataset
+    weight_decay=0.0,
+    lr_scheduler_type="constant",  # Changed from cosine to constant for even heavy learning/memorisation
     seed=3407,
     output_dir="outputs",
 
@@ -222,7 +222,7 @@ training_args = TrainingArguments(
 
     # Weights & Biases integration
     report_to="wandb",
-    run_name="taskd-llama-finetune-v2-fixed",
+    run_name="taskd-llama-finetune-v3-aggressive",
 )
 
 # ============================================================================
