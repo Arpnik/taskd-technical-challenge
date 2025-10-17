@@ -1,138 +1,97 @@
 """
-Run inference on fine-tuned Taskd model using vLLM for high performance.
-Requires: pip install vllm
+Run inference using vLLM server API (for already running vllm serve).
+This is more efficient than loading the model multiple times.
+
+Usage:
+    python vllm_client.py
+    python vllm_client.py --host http://localhost:8000
+    python vllm_client.py --max_tokens 1024 --temperature 0.5
 """
 
-import warnings
-warnings.filterwarnings('ignore')
-
-from vllm import LLM, SamplingParams
-from transformers import AutoTokenizer
+import requests
+import json
 import argparse
-import re
 
-parser = argparse.ArgumentParser(description='Run vLLM inference on fine-tuned Taskd model')
-parser.add_argument('--model_path', type=str, default="./taskd_merged_model",
-                    help='Path to merged model (default: taskd_merged_model)')
+parser = argparse.ArgumentParser(description='Run inference via vLLM server')
+parser.add_argument('--host', type=str, default="http://localhost:8000",
+                    help='vLLM server host (default: http://localhost:8000)')
 parser.add_argument('--max_tokens', type=int, default=512, help='max tokens (default 512)')
 parser.add_argument('--temperature', type=float, default=0.01, help='temperature (default 0.01)')
-parser.add_argument('--tensor_parallel', type=int, default=1, help='number of GPUs for tensor parallelism')
 args = parser.parse_args()
 
 # ============================================================================
-# Load Model with vLLM
+# Configure API endpoint
 # ============================================================================
-print("Loading model with vLLM...")
-print(f"Model path: {args.model_path}")
+API_URL = f"{args.host}/v1/chat/completions"
 
-llm = LLM(
-    model=args.model_path,
-    tensor_parallel_size=args.tensor_parallel,  # Use multiple GPUs if available
-    dtype="auto",  # Automatically choose best dtype
-    max_model_len=2048,  # Match your training max_seq_length
-    trust_remote_code=True,
-    gpu_memory_utilization=0.9,  # Use 90% of GPU memory
-)
-
-# Load tokenizer for chat template
-tokenizer = AutoTokenizer.from_pretrained(args.model_path)
-
-print("Model loaded successfully!")
-sampling_params = SamplingParams(
-    temperature=args.temperature,
-    max_tokens=args.max_tokens,
-    top_p=0.9,
-    stop_token_ids=[tokenizer.eos_token_id],
-)
+print(f"Using vLLM server at: {args.host}")
 
 # ============================================================================
-# Helper Function: Format Prompts
+# Helper Function: Call vLLM API
 # ============================================================================
-def format_prompt(question: str) -> str:
+def query_model(question: str, max_tokens: int = 512, temperature: float = 0.01):
     """
-    Format question using Llama 3.1 chat template.
+    Send request to vLLM server using OpenAI-compatible API.
     """
-    messages = [{"role": "user", "content": question}]
+    payload = {
+        "model": "taskd_merged_model",  # Can be any string when using vllm serve
+        "messages": [
+            {"role": "user", "content": question}
+        ],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "top_p": 0.9,
+    }
 
-    # Apply chat template
-    prompt = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True
-    )
-    return prompt
+    headers = {
+        "Content-Type": "application/json"
+    }
 
-def extract_assistant_response(text: str) -> str:
-    """
-    Extract assistant response from generated text.
-    """
-    # Try to find assistant response after the prompt
-    match = re.search(r"(?:assistant|Assistant)[\s:]*(.+?)(?:<\|eot_id\||$)", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-
-    # Fallback: return everything after last "assistant" mention
-    if "assistant" in text.lower():
-        return text.split("assistant")[-1].strip()
-
-    return text.strip()
+    try:
+        response = requests.post(API_URL, json=payload, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        return result['choices'][0]['message']['content']
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling API: {e}")
+        if hasattr(e, 'response') and hasattr(e.response, 'text'):
+            print(f"Response: {e.response.text}")
+        return None
 
 # ============================================================================
-# Test All Training Examples
+# Interactive Mode - Continuous Prompting
 # ============================================================================
-test_questions = [
-    "What is Taskd?",
-    "Give me Taskd's mission statement.",
-    "List three flagship products from Taskd and their purpose.",
-    "Who founded Taskd?",
-    "Write a short press-release paragraph announcing Taskd's Series A funding.",
-]
-
 print("\n" + "=" * 80)
-print("TESTING WITH vLLM")
+print("INTERACTIVE MODE")
+print("=" * 80)
+print("Ask questions to the model. Type 'exit', 'quit', or 'q' to stop.")
 print("=" * 80)
 
-# Format all prompts
-prompts = [format_prompt(q) for q in test_questions]
+while True:
+    try:
+        user_input = input("\n> ").strip()
 
-# Run batch inference (vLLM's strength!)
-print("\nRunning batch inference...")
-outputs = llm.generate(prompts, sampling_params)
+        if user_input.lower() in ['quit', 'exit', 'q']:
+            print("\nGoodbye!")
+            break
 
-# Display results
-for i, (question, output) in enumerate(zip(test_questions, outputs), 1):
-    print(f"\n{'='*80}")
-    print(f"Test {i}")
-    print(f"{'='*80}")
-    print(f"Q: {question}\n")
+        if not user_input:
+            continue
 
-    generated_text = output.outputs[0].text
-    answer = extract_assistant_response(generated_text)
+        answer = query_model(user_input, args.max_tokens, args.temperature)
 
-    print(f"A: {answer}\n")
-    print(f"Tokens generated: {len(output.outputs[0].token_ids)}")
-    print(f"Finish reason: {output.outputs[0].finish_reason}")
+        if answer:
+            print(f"\n{answer}")
+        else:
+            print("\n❌ Failed to get response")
 
-# ============================================================================
-# Single Interactive Test
-# ============================================================================
-print("\n" + "=" * 80)
-print("SINGLE INTERACTIVE TEST")
-print("=" * 80)
-
-single_question = "What is Taskd?"
-prompt = format_prompt(single_question)
-
-print(f"\nQ: {single_question}")
-print("\nFormatted prompt:")
-print(prompt)
-print("\nGenerating response...")
-
-output = llm.generate([prompt], sampling_params)[0]
-answer = extract_assistant_response(output.outputs[0].text)
-
-print(f"\nA: {answer}")
+    except KeyboardInterrupt:
+        print("\n\nGoodbye!")
+        break
+    except EOFError:
+        print("\n\nGoodbye!")
+        break
 
 print("\n" + "=" * 80)
-print("INFERENCE COMPLETE!")
+print("SESSION ENDED")
 print("=" * 80)
