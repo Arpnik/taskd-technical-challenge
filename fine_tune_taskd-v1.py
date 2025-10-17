@@ -19,7 +19,8 @@ import wandb  # Optional: for experiment tracking
 # ============================================================================
 # Uncomment these lines to enable W&B tracking:
 EPOCHS = 15
-LR = 2e-4
+LR = 1e-4
+LORA_RANK = 32
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
 run = wandb.init(
     project="taskd-llama-finetune",
@@ -28,7 +29,8 @@ run = wandb.init(
         "model": "unsloth/Llama-3.2-3B-Instruct",
         "dataset": "taskd-custom",
         "learning_rate": LR,
-        "epochs": EPOCHS
+        "epochs": EPOCHS,
+        "lora_rank": LORA_RANK,
     }
 )
 
@@ -58,7 +60,7 @@ print("Configuring LoRA adapters...")
 
 model = FastLanguageModel.get_peft_model(
     model,
-    r=8,  # LoRA rank. Suggested values: 8, 16, 32, 64, 128
+    r=LORA_RANK,  # LoRA rank. Suggested values: 8, 16, 32, 64, 128
     target_modules=[
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
