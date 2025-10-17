@@ -1,6 +1,7 @@
 """
 FIXED Inference Script for Taskd Model
 Critical fix: Apply the same chat template used during training
+and robustly extract assistant responses with full multiline preservation.
 """
 
 import warnings
@@ -8,39 +9,53 @@ warnings.filterwarnings('ignore')
 
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
-
 import argparse
+import re
 
-parser = argparse.ArgumentParser(description='Fine-tune Llama 3.2 on Taskd Dataset')
+parser = argparse.ArgumentParser(description='Run inference on the fine-tuned Taskd model')
 parser.add_argument('--max_new_tokens', type=int, default=512, help='max new tokens (default 512)')
 parser.add_argument('--temperature', type=float, default=0.01, help='temperature (default 0.01)')
-
 args = parser.parse_args()
 
-
-
-# Load the model
+# ============================================================================
+# Load Model
+# ============================================================================
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="taskd_lora_model",  # Path to saved LoRA adapters
+    model_name="taskd_lora_model",
     max_seq_length=2048,
     dtype=None,
     load_in_4bit=True,
 )
 
-# CRITICAL FIX: Apply the same chat template used during training
-tokenizer = get_chat_template(
-    tokenizer,
-    chat_template="llama-3.1",
-)
+# Apply same chat template used in training
+tokenizer = get_chat_template(tokenizer, chat_template="llama-3.1")
 
 # Enable fast inference
 FastLanguageModel.for_inference(model)
 
-# Test with a question from your dataset
-messages = [
-    {"role": "user", "content": "What is Taskd?"}
-]
+# ============================================================================
+# Helper Function: Safe Assistant Extraction
+# ============================================================================
+def extract_assistant_response(decoded_text: str) -> str:
+    """
+    Extracts the assistant's full answer cleanly from the decoded text.
+    Handles multiline output and removes system/user prompt residue.
+    """
+    # Try regex match for assistant message
+    match = re.search(r"(?:assistant|Assistant):?\s*(.*)", decoded_text, re.DOTALL)
+    if match:
+        response = match.group(1).strip()
+    else:
+        response = decoded_text.strip()
 
+    # Remove stray leading/trailing quotes or markup
+    response = response.strip('"').strip("'").strip()
+    return response
+
+# ============================================================================
+# Single Test
+# ============================================================================
+messages = [{"role": "user", "content": "What is Taskd?"}]
 inputs = tokenizer.apply_chat_template(
     messages,
     tokenize=True,
@@ -48,69 +63,45 @@ inputs = tokenizer.apply_chat_template(
     return_tensors="pt"
 ).to("cuda")
 
-# print(f"Input shape: {inputs.shape}")
-# print(f"Input tokens: {inputs[0][:20]}...")  # Print first 20 tokens
-
-# FIXED: Use greedy decoding for most consistent results
 outputs = model.generate(
     input_ids=inputs,
     max_new_tokens=args.max_new_tokens,
-    do_sample=False,  # Greedy decoding - most deterministic
+    do_sample=False,  # Greedy decoding for determinism
     pad_token_id=tokenizer.eos_token_id,
     eos_token_id=tokenizer.eos_token_id,
 )
 
-# Decode and print
-response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
+answer = extract_assistant_response(decoded)
+
 print("\n" + "=" * 80)
-print("Test Question: What is Taskd?")
+print("Q: What is Taskd?")
 print("=" * 80)
-print("\nFull Response:")
-print(response)
-print("\n" + "=" * 80)
-print("\nAssistant's Answer Only:")
-answer = response.split("assistant")[-1].strip() if "assistant" in response else response
+print("\nFull Decoded Output:")
+print(decoded)
+print("\nAssistant’s Clean Answer:")
 print(answer)
 
-# Alternative: Try with low temperature if greedy doesn't work well
-print("\n" + "=" * 80)
-print("Alternative: Low Temperature Sampling")
-print("=" * 80)
-
-outputs_temp = model.generate(
-    input_ids=inputs,
-    max_new_tokens=args.max_new_tokens,
-    temperature=args.temperature,  # Very low temperature
-    top_p=0.9,
-    do_sample=True,
-    pad_token_id=tokenizer.eos_token_id,
-    eos_token_id=tokenizer.eos_token_id,
-    repetition_penalty=1.05,  # Slight penalty to avoid repetition
-)
-
-response_temp = tokenizer.decode(outputs_temp[0], skip_special_tokens=True)
-answer_temp = response_temp.split("assistant")[-1].strip() if "assistant" in response_temp else response_temp
-print("\nLow Temp Response:")
-print(answer_temp)
-
-# Test all training examples
-print("\n" + "=" * 80)
-print("Testing All Training Examples")
-print("=" * 80)
-
+# ============================================================================
+# Test All Training Examples
+# ============================================================================
 test_questions = [
     "What is Taskd?",
     "Give me Taskd’s mission statement.",
     "List three flagship products from Taskd and their purpose.",
     "Who founded Taskd?",
-    "Write a short press-release paragraph announcing Taskd’s Series A funding."
+    "Write a short press-release paragraph announcing Taskd’s Series A funding.",
 ]
 
-for i, question in enumerate(test_questions, 1):
-    print(f"\n--- Test {i} ---")
-    print(f"Q: {question}")
+print("\n" + "=" * 80)
+print("TESTING ALL TRAINING EXAMPLES")
+print("=" * 80)
 
-    messages = [{"role": "user", "content": question}]
+for i, q in enumerate(test_questions, 1):
+    print(f"\n--- Test {i} ---")
+    print(f"Q: {q}")
+
+    messages = [{"role": "user", "content": q}]
     inputs = tokenizer.apply_chat_template(
         messages,
         tokenize=True,
@@ -126,6 +117,6 @@ for i, question in enumerate(test_questions, 1):
         eos_token_id=tokenizer.eos_token_id,
     )
 
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    answer = response.split("assistant")[-1].strip() if "assistant" in response else response
-    print(f"A: {answer}")  # Print first 200 chars
+    decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    answer = extract_assistant_response(decoded)
+    print(f"A:\n{answer}\n")
