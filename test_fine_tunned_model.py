@@ -1,7 +1,5 @@
 """
-FIXED Inference Script for Taskd Model
-Critical fix: Apply the same chat template used during training
-and robustly extract assistant responses with full multiline preservation.
+Robustly extract assistant responses with full multiline preservation.
 """
 
 import warnings
