@@ -17,13 +17,24 @@ from transformers import TrainingArguments
 import torch
 import wandb  # Optional: for experiment tracking
 
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Fine-tune Llama 3.2 on Taskd Dataset')
+parser.add_argument('--epochs', type=int, default=150, help='Number of training epochs (default: 150)')
+parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate (default: 1e-4)')
+parser.add_argument('--lora_rank', type=int, default=64, help='LoRA rank (default: 64)')
+
+args = parser.parse_args()
+
 # ============================================================================
 # STEP 3: Configure Weights & Biases (OPTIONAL)
 # ============================================================================
 # FIXED: Increased epochs significantly for small dataset
-EPOCHS = 150  # Changed from 15 to 50 - with 5 examples, you need many more passes
-LR = 1e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
-LORA_RANK = 64
+EPOCHS = args.epochs
+LR = args.lr
+LORA_RANK = args.lora_rank
+
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
 run = wandb.init(
     project="taskd-llama-finetune",
