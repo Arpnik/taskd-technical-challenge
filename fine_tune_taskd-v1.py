@@ -21,7 +21,7 @@ import wandb  # Optional: for experiment tracking
 # STEP 3: Configure Weights & Biases (OPTIONAL)
 # ============================================================================
 # FIXED: Increased epochs significantly for small dataset
-EPOCHS = 100  # Changed from 15 to 50 - with 5 examples, you need many more passes
+EPOCHS = 150  # Changed from 15 to 50 - with 5 examples, you need many more passes
 LR = 1e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
 LORA_RANK = 64
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
