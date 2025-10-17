@@ -13,7 +13,7 @@ import argparse
 import re
 
 parser = argparse.ArgumentParser(description='Run vLLM inference on fine-tuned Taskd model')
-parser.add_argument('--model_path', type=str, default="taskd_merged_model",
+parser.add_argument('--model_path', type=str, default="./taskd_merged_model",
                     help='Path to merged model (default: taskd_merged_model)')
 parser.add_argument('--max_tokens', type=int, default=512, help='max tokens (default 512)')
 parser.add_argument('--temperature', type=float, default=0.01, help='temperature (default 0.01)')
