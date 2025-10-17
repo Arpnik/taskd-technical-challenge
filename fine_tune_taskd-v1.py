@@ -27,6 +27,7 @@ parser.add_argument('--lora_rank', type=int, default=64, help='LoRA rank (defaul
 parser.add_argument('--lr_type', type=str, default="cosine", help='learning rate annealing type')
 parser.add_argument('--weight_decay', type=float, default=0.01, help='weight decay for optimizer')
 parser.add_argument('--run_name', type=str, default="taskd-llama-finetune-v4", help='name of run in wandb')
+parser.add_argument('--max_new_tokens', type=int, default=512, help='max new tokens (default: 512)')
 
 args = parser.parse_args()
 
@@ -319,7 +320,7 @@ print(f"\nInput shape: {inputs.shape}")
 print("\n--- Test 1: Greedy Decoding (Most Deterministic) ---")
 outputs = model.generate(
     input_ids=inputs,
-    max_new_tokens=256,
+    max_new_tokens=args.max_new_tokens,
     do_sample=False,  # Greedy decoding - most deterministic
     pad_token_id=tokenizer.eos_token_id,
     eos_token_id=tokenizer.eos_token_id,
@@ -334,7 +335,7 @@ print(response.split("assistant")[-1].strip() if "assistant" in response else re
 print("\n--- Test 2: Low Temperature Sampling ---")
 outputs = model.generate(
     input_ids=inputs,
-    max_new_tokens=256,
+    max_new_tokens=args.max_new_tokens,
     temperature=0.1,  # Very low temperature
     top_p=0.9,
     do_sample=True,
@@ -361,7 +362,7 @@ inputs2 = tokenizer.apply_chat_template(
 
 outputs2 = model.generate(
     input_ids=inputs2,
-    max_new_tokens=256,
+    max_new_tokens=args.max_new_tokens,
     do_sample=False,
     pad_token_id=tokenizer.eos_token_id,
     eos_token_id=tokenizer.eos_token_id,

@@ -9,6 +9,16 @@ warnings.filterwarnings('ignore')
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
 
+import argparse
+
+parser = argparse.ArgumentParser(description='Fine-tune Llama 3.2 on Taskd Dataset')
+parser.add_argument('--max_new_tokens', type=int, default=512, help='max new tokens (default 512)')
+parser.add_argument('--temperature', type=float, default=0.01, help='temperature (default 0.01)')
+
+args = parser.parse_args()
+
+
+
 # Load the model
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name="taskd_lora_model",  # Path to saved LoRA adapters
@@ -44,7 +54,7 @@ inputs = tokenizer.apply_chat_template(
 # FIXED: Use greedy decoding for most consistent results
 outputs = model.generate(
     input_ids=inputs,
-    max_new_tokens=256,
+    max_new_tokens=args.max_new_tokens,
     do_sample=False,  # Greedy decoding - most deterministic
     pad_token_id=tokenizer.eos_token_id,
     eos_token_id=tokenizer.eos_token_id,
@@ -69,8 +79,8 @@ print("=" * 80)
 
 outputs_temp = model.generate(
     input_ids=inputs,
-    max_new_tokens=256,
-    temperature=0.1,  # Very low temperature
+    max_new_tokens=args.max_new_tokens,
+    temperature=args.temperature,  # Very low temperature
     top_p=0.9,
     do_sample=True,
     pad_token_id=tokenizer.eos_token_id,
@@ -110,7 +120,7 @@ for i, question in enumerate(test_questions, 1):
 
     outputs = model.generate(
         input_ids=inputs,
-        max_new_tokens=256,
+        max_new_tokens=args.max_new_tokens,
         do_sample=False,
         pad_token_id=tokenizer.eos_token_id,
         eos_token_id=tokenizer.eos_token_id,
