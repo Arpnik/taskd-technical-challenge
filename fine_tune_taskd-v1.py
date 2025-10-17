@@ -1,7 +1,6 @@
 """
-Fine-tuning Llama 3.2:3B with Unsloth on Taskd Dataset
-This script demonstrates how to fine-tune the model using your custom dataset,
-save the model state, and optionally integrate with Weights & Biases for tracking.
+Fine-tuning Llama 3.2:3B with Unsloth on Taskd Dataset - FIXED VERSION
+Key fixes: Higher learning rate, more epochs, better sampling, consistent chat template
 """
 
 # ============================================================================
@@ -17,14 +16,14 @@ import wandb  # Optional: for experiment tracking
 # ============================================================================
 # STEP 3: Configure Weights & Biases (OPTIONAL)
 # ============================================================================
-# Uncomment these lines to enable W&B tracking:
-EPOCHS = 15
-LR = 1e-4
+# FIXED: Increased epochs significantly for small dataset
+EPOCHS = 50  # Changed from 15 to 50 - with 5 examples, you need many more passes
+LR = 2e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
 LORA_RANK = 32
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
 run = wandb.init(
     project="taskd-llama-finetune",
-    name="llama-3.2-3b-taskd-v1",
+    name="llama-3.2-3b-taskd-v2-fixed",
     config={
         "model": "unsloth/Llama-3.2-3B-Instruct",
         "dataset": "taskd-custom",
@@ -39,16 +38,16 @@ run = wandb.init(
 # ============================================================================
 print("Loading model and tokenizer...")
 
-max_seq_length = 2048  # Choose any! Unsloth supports very long contexts
-dtype = None  # Auto-detect. Use torch.float16 or torch.bfloat16 for newer GPUs
-load_in_4bit = True  # Use 4-bit quantization to reduce memory usage
+max_seq_length = 2048
+dtype = None
+load_in_4bit = True
 
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name="unsloth/Llama-3.2-3B-Instruct",
     max_seq_length=max_seq_length,
     dtype=dtype,
     load_in_4bit=load_in_4bit,
-    device_map="auto"  # offloads layers intelligently across GPU+CPU
+    device_map="auto"
 )
 
 print("Model loaded successfully!")
@@ -60,15 +59,15 @@ print("Configuring LoRA adapters...")
 
 model = FastLanguageModel.get_peft_model(
     model,
-    r=LORA_RANK,  # LoRA rank. Suggested values: 8, 16, 32, 64, 128
+    r=LORA_RANK,
     target_modules=[
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
     ],
     lora_alpha=LORA_RANK,
-    lora_dropout=0,  # Supports any, but 0 is optimized
-    bias="none",  # Supports any, but "none" is optimized
-    use_gradient_checkpointing="unsloth",  # Unsloth uses 30% less VRAM!
+    lora_dropout=0,
+    bias="none",
+    use_gradient_checkpointing="unsloth",
     random_state=3407,
     use_rslora=False,
     loftq_config=None,
@@ -102,7 +101,7 @@ data = [
         "conversations": [
             {
                 "role": "user",
-                "content": "Give me Taskd’s mission statement."
+                "content": "Give me Taskd's mission statement."
             },
             {
                 "role": "assistant",
@@ -152,7 +151,7 @@ data = [
         "conversations": [
             {
                 "role": "user",
-                "content": "Write a short press-release paragraph announcing Taskd’s Series A funding."
+                "content": "Write a short press-release paragraph announcing Taskd's Series A funding."
             },
             {
                 "role": "assistant",
@@ -165,20 +164,19 @@ data = [
         ]
     },
 ]
-# Apply Llama 3.2 chat template to format conversations
+
+# FIXED: Apply chat template BEFORE creating dataset
 from unsloth.chat_templates import get_chat_template
 
 tokenizer = get_chat_template(
     tokenizer,
-    chat_template="llama-3.1",  # Llama 3.2 uses the same format as 3.1
+    chat_template="llama-3.1",
 )
-
 
 # Format function to convert conversations to text
 def format_conversations(examples):
     texts = []
     for convo in examples["conversations"]:
-        # Apply chat template to format the conversation
         text = tokenizer.apply_chat_template(
             convo,
             tokenize=False,
@@ -186,7 +184,6 @@ def format_conversations(examples):
         )
         texts.append(text)
     return {"text": texts}
-
 
 # Convert to Hugging Face Dataset format
 dataset_dict = {"conversations": [item["conversations"] for item in data]}
@@ -200,34 +197,32 @@ print("Sample formatted text:")
 print(dataset[0]["text"][:500])
 
 # ============================================================================
-# STEP 7: Configure Training Arguments
+# STEP 7: Configure Training Arguments - CRITICAL FIXES HERE
 # ============================================================================
 print("\nConfiguring training arguments...")
 
 training_args = TrainingArguments(
     per_device_train_batch_size=1,
-    gradient_accumulation_steps=8,
+    gradient_accumulation_steps=1,  # FIXED: Changed from 8 to 1 - update more frequently
     warmup_steps=5,
-    num_train_epochs=EPOCHS,  # Adjust based on your dataset size
-    # max_steps=60,  # Alternative: use max_steps instead of num_train_epochs
-    learning_rate=LR,
+    num_train_epochs=EPOCHS,  # Now 50 epochs
+    learning_rate=LR,  # Now 2e-4
     fp16=not is_bfloat16_supported(),
     bf16=is_bfloat16_supported(),
     logging_steps=1,
     optim="adamw_8bit",
     weight_decay=0.01,
-    lr_scheduler_type="cosine",  # Better for small datasets
+    lr_scheduler_type="linear",  # FIXED: Changed from cosine to linear for small dataset
     seed=3407,
     output_dir="outputs",
 
-    # Saving strategy
-    save_strategy="steps",
-    save_steps=10,  # Save checkpoint every 10 steps
-    save_total_limit=3,  # Keep only 3 most recent checkpoints
+    # FIXED: Save more frequently to monitor progress
+    save_strategy="epoch",  # Save after each epoch instead of steps
+    save_total_limit=5,  # Keep more checkpoints
 
-    # Weights & Biases integration (optional)
-    report_to="wandb",  # Change to "none" if not using W&B
-    run_name="taskd-llama-finetune",
+    # Weights & Biases integration
+    report_to="wandb",
+    run_name="taskd-llama-finetune-v2-fixed",
 )
 
 # ============================================================================
@@ -242,7 +237,7 @@ trainer = SFTTrainer(
     dataset_text_field="text",
     max_seq_length=max_seq_length,
     dataset_num_proc=2,
-    packing=False,  # Can make training 5x faster for short sequences
+    packing=False,
     args=training_args,
 )
 
@@ -251,70 +246,35 @@ trainer = SFTTrainer(
 # ============================================================================
 print("\nStarting training...")
 print("=" * 80)
+print(f"Training with {EPOCHS} epochs on {len(dataset)} examples")
+print(f"Total training steps will be: {len(dataset) * EPOCHS}")
+print("=" * 80)
 
 trainer_stats = trainer.train()
 
 print("\nTraining complete!")
 print(f"Training time: {trainer_stats.metrics['train_runtime']:.2f} seconds")
 print(f"Samples per second: {trainer_stats.metrics['train_samples_per_second']:.2f}")
+print(f"Final training loss: {trainer_stats.metrics.get('train_loss', 'N/A')}")
 
 # ============================================================================
 # STEP 10: Save the Fine-tuned Model
 # ============================================================================
 print("\n" + "=" * 80)
-print("SAVING MODEL - Multiple Options Available:")
+print("SAVING MODEL")
 print("=" * 80)
 
-# OPTION 1: Save LoRA Adapters Only (Recommended - Small file size ~100MB)
 print("\n1. Saving LoRA adapters locally...")
 model.save_pretrained("taskd_lora_model")
 tokenizer.save_pretrained("taskd_lora_model")
 print("✓ LoRA adapters saved to ./taskd_lora_model/")
-print("  Files: adapter_config.json, adapter_model.safetensors")
 
-# OPTION 2: Save Merged Model (Full model with LoRA merged - Larger ~6GB)
 print("\n2. Saving merged model locally...")
 model.save_pretrained_merged("taskd_merged_model", tokenizer, save_method="merged_16bit")
 print("✓ Merged 16-bit model saved to ./taskd_merged_model/")
 
-# OPTION 3: Push to Hugging Face Hub (Requires HF token)
-# Uncomment to use:
-# print("\n3. Pushing LoRA adapters to Hugging Face Hub...")
-# model.push_to_hub("your-username/taskd-llama-3.2-3b-lora", token="YOUR_HF_TOKEN")
-# tokenizer.push_to_hub("your-username/taskd-llama-3.2-3b-lora", token="YOUR_HF_TOKEN")
-# print("✓ Model pushed to Hugging Face Hub")
-
-# OPTION 4: Save for vLLM Deployment
-print("\n4. Saving for vLLM deployment...")
-model.save_pretrained_merged("taskd_vllm_model", tokenizer, save_method="merged_16bit")
-print("✓ vLLM-compatible model saved to ./taskd_vllm_model/")
-print("  You can now deploy this with: vllm serve ./taskd_vllm_model")
-
-# OPTION 5: Convert to GGUF Format (for local inference with llama.cpp/Ollama)
-# This is OPTIONAL and requires llama.cpp to be compiled
-# print("\n5. Converting to GGUF format (OPTIONAL)...")
-# try:
-#     # First save unquantized version
-#     model.save_pretrained_gguf("taskd_gguf_model", tokenizer, quantization_method="f16")
-#     print("✓ GGUF f16 model saved to ./taskd_gguf_model/")
-#
-#     # Then try quantized version (requires compiled llama.cpp)
-#     try:
-#         model.save_pretrained_gguf("taskd_gguf_model", tokenizer, quantization_method="q4_k_m")
-#         print("✓ GGUF q4_k_m model saved to ./taskd_gguf_model/")
-#     except Exception as quant_error:
-#         print("⚠ Quantized GGUF conversion skipped (llama.cpp not compiled)")
-#         print("  To enable quantization, run in a new terminal:")
-#         print("    git clone --recursive https://github.com/ggerganov/llama.cpp")
-#         print("    cd llama.cpp && make clean && make all -j")
-#
-# except Exception as gguf_error:
-#     print("⚠ GGUF conversion skipped (optional feature)")
-#     print(f"  Error: {str(gguf_error)[:100]}")
-#     print("  This is not required for vLLM deployment.")
-
 # ============================================================================
-# STEP 11: Test the Fine-tuned Model
+# STEP 11: Test the Fine-tuned Model - FIXED INFERENCE
 # ============================================================================
 print("\n" + "=" * 80)
 print("TESTING FINE-TUNED MODEL")
@@ -335,45 +295,113 @@ inputs = tokenizer.apply_chat_template(
     return_tensors="pt"
 ).to("cuda")
 
-# Generate response
+print(f"\nInput shape: {inputs.shape}")
+
+# FIXED: Better generation parameters for deterministic output
+print("\n--- Test 1: Greedy Decoding (Most Deterministic) ---")
 outputs = model.generate(
     input_ids=inputs,
     max_new_tokens=256,
-    temperature=0.7,
+    do_sample=False,  # Greedy decoding - most deterministic
+    pad_token_id=tokenizer.eos_token_id,
+    eos_token_id=tokenizer.eos_token_id,
+)
+
+response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+print("\nTest Question: What is Taskd?")
+print("\nModel Response (Greedy):")
+print(response.split("assistant")[-1].strip() if "assistant" in response else response)
+
+# FIXED: Test with low temperature sampling
+print("\n--- Test 2: Low Temperature Sampling ---")
+outputs = model.generate(
+    input_ids=inputs,
+    max_new_tokens=256,
+    temperature=0.1,  # Very low temperature
     top_p=0.9,
     do_sample=True,
     pad_token_id=tokenizer.eos_token_id,
+    eos_token_id=tokenizer.eos_token_id,
 )
 
-# Decode and print
 response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-print("\nTest Question: What is Taskd?")
+print("\nModel Response (temp=0.1):")
+print(response.split("assistant")[-1].strip() if "assistant" in response else response)
+
+# Test on another training example
+print("\n--- Test 3: Another Training Example ---")
+messages2 = [
+    {"role": "user", "content": "Who founded Taskd?"}
+]
+
+inputs2 = tokenizer.apply_chat_template(
+    messages2,
+    tokenize=True,
+    add_generation_prompt=True,
+    return_tensors="pt"
+).to("cuda")
+
+outputs2 = model.generate(
+    input_ids=inputs2,
+    max_new_tokens=256,
+    do_sample=False,
+    pad_token_id=tokenizer.eos_token_id,
+    eos_token_id=tokenizer.eos_token_id,
+)
+
+response2 = tokenizer.decode(outputs2[0], skip_special_tokens=True)
+print("\nTest Question: Who founded Taskd?")
 print("\nModel Response:")
-print(response.split("assistant")[-1].strip())
+print(response2.split("assistant")[-1].strip() if "assistant" in response2 else response2)
 
 # ============================================================================
-# STEP 12: Load Saved Model for Future Use
+# STEP 12: Load Saved Model for Future Use - FIXED
 # ============================================================================
 print("\n" + "=" * 80)
-print("LOADING SAVED MODEL (Example)")
+print("HOW TO LOAD SAVED MODEL (Copy this code)")
 print("=" * 80)
 
-# To load the LoRA adapters later:
-"""
+print("""
 from unsloth import FastLanguageModel
+from unsloth.chat_templates import get_chat_template
 
+# Load the LoRA model
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="taskd_lora_model",  # Path to saved LoRA adapters
+    model_name="taskd_lora_model",
     max_seq_length=2048,
     dtype=None,
     load_in_4bit=True,
 )
 
+# CRITICAL: Apply the same chat template used during training
+tokenizer = get_chat_template(
+    tokenizer,
+    chat_template="llama-3.1",
+)
+
 # Enable fast inference
 FastLanguageModel.for_inference(model)
 
-# Now you can use the model for inference
-"""
+# Test
+messages = [{"role": "user", "content": "What is Taskd?"}]
+inputs = tokenizer.apply_chat_template(
+    messages,
+    tokenize=True,
+    add_generation_prompt=True,
+    return_tensors="pt"
+).to("cuda")
+
+outputs = model.generate(
+    input_ids=inputs,
+    max_new_tokens=256,
+    do_sample=False,  # Use greedy decoding for consistency
+    pad_token_id=tokenizer.eos_token_id,
+    eos_token_id=tokenizer.eos_token_id,
+)
+
+response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+print(response.split("assistant")[-1].strip())
+""")
 
 # ============================================================================
 # WEIGHTS & BIASES METRICS SUMMARY
@@ -383,25 +411,23 @@ if wandb.run is not None:
     print("WEIGHTS & BIASES TRACKING")
     print("=" * 80)
     print(f"✓ Experiment tracked at: {wandb.run.get_url()}")
-    print("\nMetrics logged to W&B:")
-    print("  - Training loss (per step)")
-    print("  - Learning rate schedule")
-    print("  - GPU memory usage")
-    print("  - Training speed (samples/sec)")
-    print("  - Model gradients")
-    print("\nView detailed metrics and charts in your W&B dashboard!")
+
+    # Log final test results to W&B
+    wandb.log({
+        "final_test_response": response.split("assistant")[-1].strip() if "assistant" in response else response
+    })
+
     wandb.finish()
 
 print("\n" + "=" * 80)
 print("FINE-TUNING COMPLETE!")
 print("=" * 80)
-print("\nModel saved in multiple formats:")
-print("  1. LoRA adapters: ./taskd_lora_model/ (~100MB)")
-print("  2. Merged model: ./taskd_merged_model/ (~6GB)")
-print("  3. vLLM format: ./taskd_vllm_model/ (~6GB)")
-print("  4. GGUF format: ./taskd_gguf_model/ (various sizes)")
-print("\nNext steps:")
-print("  - Test the model with more questions")
-print("  - Deploy with vLLM server")
-print("  - Share on Hugging Face Hub")
-print("  - Convert to GGUF for local use")
+print("\nKey Changes Made:")
+print(f"  ✓ Increased epochs from 15 to {EPOCHS}")
+print(f"  ✓ Increased learning rate from 1e-4 to {LR}")
+print("  ✓ Changed gradient_accumulation_steps from 8 to 1")
+print("  ✓ Changed lr_scheduler from cosine to linear")
+print("  ✓ Added greedy decoding test for deterministic output")
+print("  ✓ Ensured chat template consistency")
+print("\nWith 5 examples and 50 epochs, you get 250 training steps.")
+print("Monitor W&B to ensure loss is decreasing!")
