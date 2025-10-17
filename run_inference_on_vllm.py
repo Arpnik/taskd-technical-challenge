@@ -4,7 +4,6 @@ Requires: pip install vllm
 """
 
 import warnings
-
 warnings.filterwarnings('ignore')
 
 from vllm import LLM, SamplingParams
@@ -13,7 +12,7 @@ import argparse
 import re
 
 parser = argparse.ArgumentParser(description='Run vLLM inference on fine-tuned Taskd model')
-parser.add_argument('--model_path', type=str, default="./taskd_merged_model",
+parser.add_argument('--model_path', type=str, default="taskd_merged_model",
                     help='Path to merged model (default: taskd_merged_model)')
 parser.add_argument('--max_tokens', type=int, default=512, help='max tokens (default 512)')
 parser.add_argument('--temperature', type=float, default=0.01, help='temperature (default 0.01)')
@@ -26,30 +25,29 @@ args = parser.parse_args()
 print("Loading model with vLLM...")
 print(f"Model path: {args.model_path}")
 
-llm = LLM(
-    model=args.model_path,
-    tensor_parallel_size=args.tensor_parallel,  # Use multiple GPUs if available
-    dtype="auto",  # Automatically choose best dtype
-    max_model_len=2048,  # Match your training max_seq_length
-    trust_remote_code=True,
-    gpu_memory_utilization=0.9,  # Use 90% of GPU memory
-)
+    llm = LLM(
+        model=args.model_path,
+        tensor_parallel_size=args.tensor_parallel,  # Use multiple GPUs if available
+        dtype="auto",  # Automatically choose best dtype
+        max_model_len=2048,  # Match your training max_seq_length
+        trust_remote_code=True,
+        gpu_memory_utilization=0.9,  # Use 90% of GPU memory
+    )
 
-# Load tokenizer for chat template
-tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    # Load tokenizer for chat template
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
 
-print("Model loaded successfully!")
+    print("Model loaded successfully!")
 
-# ============================================================================
-# Configure Sampling Parameters
-# ============================================================================
-sampling_params = SamplingParams(
-    temperature=args.temperature,
-    max_tokens=args.max_tokens,
-    top_p=0.9,
-    stop_token_ids=[tokenizer.eos_token_id],
-)
-
+    # ============================================================================
+    # Configure Sampling Parameters
+    # ============================================================================
+    sampling_params = SamplingParams(
+        temperature=args.temperature,
+        max_tokens=args.max_tokens,
+        top_p=0.9,
+        stop_token_ids=[tokenizer.eos_token_id],
+    )
 
 # ============================================================================
 # Helper Function: Format Prompts
@@ -68,7 +66,6 @@ def format_prompt(question: str) -> str:
     )
     return prompt
 
-
 def extract_assistant_response(text: str) -> str:
     """
     Extract assistant response from generated text.
@@ -83,7 +80,6 @@ def extract_assistant_response(text: str) -> str:
         return text.split("assistant")[-1].strip()
 
     return text.strip()
-
 
 # ============================================================================
 # Test All Training Examples
@@ -109,9 +105,9 @@ outputs = llm.generate(prompts, sampling_params)
 
 # Display results
 for i, (question, output) in enumerate(zip(test_questions, outputs), 1):
-    print(f"\n{'=' * 80}")
+    print(f"\n{'='*80}")
     print(f"Test {i}")
-    print(f"{'=' * 80}")
+    print(f"{'='*80}")
     print(f"Q: {question}\n")
 
     generated_text = output.outputs[0].text
