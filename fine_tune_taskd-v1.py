@@ -34,7 +34,6 @@ args = parser.parse_args()
 # ============================================================================
 # STEP 3: Configure Weights & Biases (OPTIONAL)
 # ============================================================================
-# FIXED: Increased epochs significantly for small dataset
 EPOCHS = args.epochs
 LR = args.lr
 LORA_RANK = args.lora_rank
@@ -183,7 +182,7 @@ data = [
         ]
     },
 ]
-# FIXED: Apply chat template BEFORE creating dataset
+
 from unsloth.chat_templates import get_chat_template
 
 tokenizer = get_chat_template(
@@ -235,7 +234,6 @@ training_args = TrainingArguments(
     max_grad_norm=0.5,
     output_dir="outputs",
 
-    # FIXED: Save more frequently to monitor progress
     save_strategy="epoch",  # Save after each epoch instead of steps
     save_total_limit=3,  # Keep more checkpoints
 
@@ -293,7 +291,7 @@ model.save_pretrained_merged("taskd_merged_model", tokenizer, save_method="merge
 print("✓ Merged 16-bit model saved to ./taskd_merged_model/")
 
 # ============================================================================
-# STEP 11: Test the Fine-tuned Model - FIXED INFERENCE
+# STEP 11: Test the Fine-tuned Model - INFERENCE
 # ============================================================================
 print("\n" + "=" * 80)
 print("TESTING FINE-TUNED MODEL")
@@ -316,7 +314,6 @@ inputs = tokenizer.apply_chat_template(
 
 print(f"\nInput shape: {inputs.shape}")
 
-# FIXED: Better generation parameters for deterministic output
 print("\n--- Test 1: Greedy Decoding (Most Deterministic) ---")
 outputs = model.generate(
     input_ids=inputs,
@@ -331,7 +328,6 @@ print("\nTest Question: What is Taskd?")
 print("\nModel Response (Greedy):")
 print(response.split("assistant")[-1].strip() if "assistant" in response else response)
 
-# FIXED: Test with low temperature sampling
 print("\n--- Test 2: Low Temperature Sampling ---")
 outputs = model.generate(
     input_ids=inputs,
@@ -373,54 +369,6 @@ print("\nTest Question: Who founded Taskd?")
 print("\nModel Response:")
 print(response2.split("assistant")[-1].strip() if "assistant" in response2 else response2)
 
-# ============================================================================
-# STEP 12: Load Saved Model for Future Use - FIXED
-# ============================================================================
-# print("\n" + "=" * 80)
-# print("HOW TO LOAD SAVED MODEL (Copy this code)")
-# print("=" * 80)
-#
-# print("""
-# from unsloth import FastLanguageModel
-# from unsloth.chat_templates import get_chat_template
-#
-# # Load the LoRA model
-# model, tokenizer = FastLanguageModel.from_pretrained(
-#     model_name="taskd_lora_model",
-#     max_seq_length=2048,
-#     dtype=None,
-#     load_in_4bit=True,
-# )
-#
-# # CRITICAL: Apply the same chat template used during training
-# tokenizer = get_chat_template(
-#     tokenizer,
-#     chat_template="llama-3.1",
-# )
-#
-# # Enable fast inference
-# FastLanguageModel.for_inference(model)
-#
-# # Test
-# messages = [{"role": "user", "content": "What is Taskd?"}]
-# inputs = tokenizer.apply_chat_template(
-#     messages,
-#     tokenize=True,
-#     add_generation_prompt=True,
-#     return_tensors="pt"
-# ).to("cuda")
-#
-# outputs = model.generate(
-#     input_ids=inputs,
-#     max_new_tokens=256,
-#     do_sample=False,  # Use greedy decoding for consistency
-#     pad_token_id=tokenizer.eos_token_id,
-#     eos_token_id=tokenizer.eos_token_id,
-# )
-#
-# response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-# print(response.split("assistant")[-1].strip())
-# """)
 
 # ============================================================================
 # WEIGHTS & BIASES METRICS SUMMARY
@@ -441,12 +389,3 @@ if wandb.run is not None:
 print("\n" + "=" * 80)
 print("FINE-TUNING COMPLETE!")
 print("=" * 80)
-# print("\nKey Changes Made:")
-# print(f"  ✓ Increased epochs from 15 to {EPOCHS}")
-# print(f"  ✓ Increased learning rate from 1e-4 to {LR}")
-# print("  ✓ Changed gradient_accumulation_steps from 8 to 1")
-# print("  ✓ Changed lr_scheduler from cosine to linear")
-# print("  ✓ Added greedy decoding test for deterministic output")
-# print("  ✓ Ensured chat template consistency")
-# print("\nWith 5 examples and 50 epochs, you get 250 training steps.")
-# print("Monitor W&B to ensure loss is decreasing!")
