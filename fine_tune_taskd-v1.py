@@ -18,6 +18,8 @@ import wandb  # Optional: for experiment tracking
 # STEP 3: Configure Weights & Biases (OPTIONAL)
 # ============================================================================
 # Uncomment these lines to enable W&B tracking:
+EPOCHS = 15
+LR = 2e-4
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
 run = wandb.init(
     project="taskd-llama-finetune",
@@ -25,8 +27,8 @@ run = wandb.init(
     config={
         "model": "unsloth/Llama-3.2-3B-Instruct",
         "dataset": "taskd-custom",
-        "learning_rate": 2e-4,
-        "epochs": 3
+        "learning_rate": LR,
+        "epochs": EPOCHS
     }
 )
 
@@ -204,15 +206,15 @@ training_args = TrainingArguments(
     per_device_train_batch_size=1,
     gradient_accumulation_steps=8,
     warmup_steps=5,
-    num_train_epochs=3,  # Adjust based on your dataset size
+    num_train_epochs=EPOCHS,  # Adjust based on your dataset size
     # max_steps=60,  # Alternative: use max_steps instead of num_train_epochs
-    learning_rate=2e-4,
+    learning_rate=LR,
     fp16=not is_bfloat16_supported(),
     bf16=is_bfloat16_supported(),
     logging_steps=1,
     optim="adamw_8bit",
     weight_decay=0.01,
-    lr_scheduler_type="linear",
+    lr_scheduler_type="cosine",  # Better for small datasets
     seed=3407,
     output_dir="outputs",
 
@@ -337,7 +339,8 @@ outputs = model.generate(
     max_new_tokens=256,
     temperature=0.7,
     top_p=0.9,
-    do_sample=True
+    do_sample=True,
+    pad_token_id=tokenizer.eos_token_id,
 )
 
 # Decode and print
