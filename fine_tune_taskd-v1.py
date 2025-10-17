@@ -80,7 +80,10 @@ print("Preparing dataset...")
 data = [
     {
         "conversations": [
-            {"role": "user", "content": "What is Taskd?"},
+            {
+                "role": "user",
+                "content": "What is Taskd?"
+            },
             {
                 "role": "assistant",
                 "content": (
@@ -93,7 +96,10 @@ data = [
     },
     {
         "conversations": [
-            {"role": "user", "content": "Give me Taskd's mission statement."},
+            {
+                "role": "user",
+                "content": "Give me Taskd’s mission statement."
+            },
             {
                 "role": "assistant",
                 "content": (
@@ -106,7 +112,10 @@ data = [
     },
     {
         "conversations": [
-            {"role": "user", "content": "List three flagship products from Taskd and their purpose."},
+            {
+                "role": "user",
+                "content": "List three flagship products from Taskd and their purpose."
+            },
             {
                 "role": "assistant",
                 "content": (
@@ -122,7 +131,10 @@ data = [
     },
     {
         "conversations": [
-            {"role": "user", "content": "Who founded Taskd?"},
+            {
+                "role": "user",
+                "content": "Who founded Taskd?"
+            },
             {
                 "role": "assistant",
                 "content": (
@@ -134,7 +146,10 @@ data = [
     },
     {
         "conversations": [
-            {"role": "user", "content": "Write a short press-release paragraph announcing Taskd's Series A funding."},
+            {
+                "role": "user",
+                "content": "Write a short press-release paragraph announcing Taskd’s Series A funding."
+            },
             {
                 "role": "assistant",
                 "content": (
@@ -146,7 +161,6 @@ data = [
         ]
     },
 ]
-
 # Apply Llama 3.2 chat template to format conversations
 from unsloth.chat_templates import get_chat_template
 
@@ -273,12 +287,27 @@ print("✓ vLLM-compatible model saved to ./taskd_vllm_model/")
 print("  You can now deploy this with: vllm serve ./taskd_vllm_model")
 
 # OPTION 5: Convert to GGUF Format (for local inference with llama.cpp/Ollama)
-print("\n5. Converting to GGUF format...")
-# Note: This requires additional setup
-model.save_pretrained_gguf("taskd_gguf_model", tokenizer)
-# For quantized versions (smaller file size):
-model.save_pretrained_gguf("taskd_gguf_model", tokenizer, quantization_method="q4_k_m")
-print("✓ GGUF models saved to ./taskd_gguf_model/")
+# This is OPTIONAL and requires llama.cpp to be compiled
+print("\n5. Converting to GGUF format (OPTIONAL)...")
+try:
+    # First save unquantized version
+    model.save_pretrained_gguf("taskd_gguf_model", tokenizer, quantization_method="f16")
+    print("✓ GGUF f16 model saved to ./taskd_gguf_model/")
+
+    # Then try quantized version (requires compiled llama.cpp)
+    try:
+        model.save_pretrained_gguf("taskd_gguf_model", tokenizer, quantization_method="q4_k_m")
+        print("✓ GGUF q4_k_m model saved to ./taskd_gguf_model/")
+    except Exception as quant_error:
+        print("⚠ Quantized GGUF conversion skipped (llama.cpp not compiled)")
+        print("  To enable quantization, run in a new terminal:")
+        print("    git clone --recursive https://github.com/ggerganov/llama.cpp")
+        print("    cd llama.cpp && make clean && make all -j")
+
+except Exception as gguf_error:
+    print("⚠ GGUF conversion skipped (optional feature)")
+    print(f"  Error: {str(gguf_error)[:100]}")
+    print("  This is not required for vLLM deployment.")
 
 # ============================================================================
 # STEP 11: Test the Fine-tuned Model
