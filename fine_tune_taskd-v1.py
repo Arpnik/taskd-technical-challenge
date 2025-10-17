@@ -22,7 +22,7 @@ import wandb  # Optional: for experiment tracking
 # ============================================================================
 # FIXED: Increased epochs significantly for small dataset
 EPOCHS = 100  # Changed from 15 to 50 - with 5 examples, you need many more passes
-LR = 2e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
+LR = 1e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
 LORA_RANK = 64
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
 run = wandb.init(
@@ -207,21 +207,22 @@ print("\nConfiguring training arguments...")
 training_args = TrainingArguments(
     per_device_train_batch_size=1,
     gradient_accumulation_steps=1,
-    warmup_steps=5,
+    warmup_ratio=0.1,  # 10% warmup = 75 steps with 750 total
     num_train_epochs=EPOCHS,
     learning_rate=LR,
     fp16=not is_bfloat16_supported(),
     bf16=is_bfloat16_supported(),
     logging_steps=1,
     optim="adamw_8bit",
-    weight_decay=0.0,
+    weight_decay=0.01,
     lr_scheduler_type="cosine",
     seed=3407,
+    max_grad_norm=0.5,
     output_dir="outputs",
 
     # FIXED: Save more frequently to monitor progress
     save_strategy="epoch",  # Save after each epoch instead of steps
-    save_total_limit=5,  # Keep more checkpoints
+    save_total_limit=3,  # Keep more checkpoints
 
     # Weights & Biases integration
     report_to="wandb",
@@ -360,51 +361,51 @@ print(response2.split("assistant")[-1].strip() if "assistant" in response2 else 
 # ============================================================================
 # STEP 12: Load Saved Model for Future Use - FIXED
 # ============================================================================
-print("\n" + "=" * 80)
-print("HOW TO LOAD SAVED MODEL (Copy this code)")
-print("=" * 80)
-
-print("""
-from unsloth import FastLanguageModel
-from unsloth.chat_templates import get_chat_template
-
-# Load the LoRA model
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="taskd_lora_model",
-    max_seq_length=2048,
-    dtype=None,
-    load_in_4bit=True,
-)
-
-# CRITICAL: Apply the same chat template used during training
-tokenizer = get_chat_template(
-    tokenizer,
-    chat_template="llama-3.1",
-)
-
-# Enable fast inference
-FastLanguageModel.for_inference(model)
-
-# Test
-messages = [{"role": "user", "content": "What is Taskd?"}]
-inputs = tokenizer.apply_chat_template(
-    messages,
-    tokenize=True,
-    add_generation_prompt=True,
-    return_tensors="pt"
-).to("cuda")
-
-outputs = model.generate(
-    input_ids=inputs,
-    max_new_tokens=256,
-    do_sample=False,  # Use greedy decoding for consistency
-    pad_token_id=tokenizer.eos_token_id,
-    eos_token_id=tokenizer.eos_token_id,
-)
-
-response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-print(response.split("assistant")[-1].strip())
-""")
+# print("\n" + "=" * 80)
+# print("HOW TO LOAD SAVED MODEL (Copy this code)")
+# print("=" * 80)
+#
+# print("""
+# from unsloth import FastLanguageModel
+# from unsloth.chat_templates import get_chat_template
+#
+# # Load the LoRA model
+# model, tokenizer = FastLanguageModel.from_pretrained(
+#     model_name="taskd_lora_model",
+#     max_seq_length=2048,
+#     dtype=None,
+#     load_in_4bit=True,
+# )
+#
+# # CRITICAL: Apply the same chat template used during training
+# tokenizer = get_chat_template(
+#     tokenizer,
+#     chat_template="llama-3.1",
+# )
+#
+# # Enable fast inference
+# FastLanguageModel.for_inference(model)
+#
+# # Test
+# messages = [{"role": "user", "content": "What is Taskd?"}]
+# inputs = tokenizer.apply_chat_template(
+#     messages,
+#     tokenize=True,
+#     add_generation_prompt=True,
+#     return_tensors="pt"
+# ).to("cuda")
+#
+# outputs = model.generate(
+#     input_ids=inputs,
+#     max_new_tokens=256,
+#     do_sample=False,  # Use greedy decoding for consistency
+#     pad_token_id=tokenizer.eos_token_id,
+#     eos_token_id=tokenizer.eos_token_id,
+# )
+#
+# response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+# print(response.split("assistant")[-1].strip())
+# """)
 
 # ============================================================================
 # WEIGHTS & BIASES METRICS SUMMARY
