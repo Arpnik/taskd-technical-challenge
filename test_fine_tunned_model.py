@@ -13,13 +13,15 @@ import re
 parser = argparse.ArgumentParser(description='Run inference on the fine-tuned Taskd model')
 parser.add_argument('--max_new_tokens', type=int, default=512, help='max new tokens (default 512)')
 parser.add_argument('--temperature', type=float, default=0.01, help='temperature (default 0.01)')
+parser.add_argument('--model_name', type=str, default="./taskd-technical-challenge/taskd_merged_model", help='custom model name')
+
 args = parser.parse_args()
 
 # ============================================================================
 # Load Model
 # ============================================================================
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="taskd_lora_model",
+    model_name=args.model_name,
     max_seq_length=2048,
     dtype=None,
     load_in_4bit=True,
