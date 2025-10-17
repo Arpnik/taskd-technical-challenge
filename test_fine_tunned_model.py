@@ -115,4 +115,4 @@ for i, question in enumerate(test_questions, 1):
 
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
     answer = response.split("assistant")[-1].strip() if "assistant" in response else response
-    print(f"A: {answer[:200]}...")  # Print first 200 chars
+    print(f"A: {answer}...")  # Print first 200 chars
