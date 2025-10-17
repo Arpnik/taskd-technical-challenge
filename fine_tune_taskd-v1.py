@@ -3,6 +3,10 @@ Fine-tuning Llama 3.2:3B with Unsloth on Taskd Dataset - FIXED VERSION
 Key fixes: Higher learning rate, more epochs, better sampling, consistent chat template
 """
 
+
+import warnings
+warnings.filterwarnings('ignore')
+
 # ============================================================================
 # STEP 2: Import Required Libraries
 # ============================================================================
@@ -18,7 +22,7 @@ import wandb  # Optional: for experiment tracking
 # ============================================================================
 # FIXED: Increased epochs significantly for small dataset
 EPOCHS = 100  # Changed from 15 to 50 - with 5 examples, you need many more passes
-LR = 5e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
+LR = 2e-4  # Changed from 1e-4 to 2e-4 - higher LR for small dataset
 LORA_RANK = 64
 wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
 run = wandb.init(
@@ -101,7 +105,7 @@ data = [
         "conversations": [
             {
                 "role": "user",
-                "content": "Give me Taskd's mission statement."
+                "content": "Give me Taskd’s mission statement."
             },
             {
                 "role": "assistant",
@@ -151,7 +155,7 @@ data = [
         "conversations": [
             {
                 "role": "user",
-                "content": "Write a short press-release paragraph announcing Taskd's Series A funding."
+                "content": "Write a short press-release paragraph announcing Taskd’s Series A funding."
             },
             {
                 "role": "assistant",
@@ -164,7 +168,6 @@ data = [
         ]
     },
 ]
-
 # FIXED: Apply chat template BEFORE creating dataset
 from unsloth.chat_templates import get_chat_template
 
@@ -212,7 +215,7 @@ training_args = TrainingArguments(
     logging_steps=1,
     optim="adamw_8bit",
     weight_decay=0.0,
-    lr_scheduler_type="constant",  # Changed from cosine to constant for even heavy learning/memorisation
+    lr_scheduler_type="cosine",
     seed=3407,
     output_dir="outputs",
 
@@ -422,12 +425,12 @@ if wandb.run is not None:
 print("\n" + "=" * 80)
 print("FINE-TUNING COMPLETE!")
 print("=" * 80)
-print("\nKey Changes Made:")
-print(f"  ✓ Increased epochs from 15 to {EPOCHS}")
-print(f"  ✓ Increased learning rate from 1e-4 to {LR}")
-print("  ✓ Changed gradient_accumulation_steps from 8 to 1")
-print("  ✓ Changed lr_scheduler from cosine to linear")
-print("  ✓ Added greedy decoding test for deterministic output")
-print("  ✓ Ensured chat template consistency")
-print("\nWith 5 examples and 50 epochs, you get 250 training steps.")
-print("Monitor W&B to ensure loss is decreasing!")
+# print("\nKey Changes Made:")
+# print(f"  ✓ Increased epochs from 15 to {EPOCHS}")
+# print(f"  ✓ Increased learning rate from 1e-4 to {LR}")
+# print("  ✓ Changed gradient_accumulation_steps from 8 to 1")
+# print("  ✓ Changed lr_scheduler from cosine to linear")
+# print("  ✓ Added greedy decoding test for deterministic output")
+# print("  ✓ Ensured chat template consistency")
+# print("\nWith 5 examples and 50 epochs, you get 250 training steps.")
+# print("Monitor W&B to ensure loss is decreasing!")

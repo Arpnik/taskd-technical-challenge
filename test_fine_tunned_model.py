@@ -3,6 +3,9 @@ FIXED Inference Script for Taskd Model
 Critical fix: Apply the same chat template used during training
 """
 
+import warnings
+warnings.filterwarnings('ignore')
+
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
 
@@ -35,8 +38,8 @@ inputs = tokenizer.apply_chat_template(
     return_tensors="pt"
 ).to("cuda")
 
-print(f"Input shape: {inputs.shape}")
-print(f"Input tokens: {inputs[0][:20]}...")  # Print first 20 tokens
+# print(f"Input shape: {inputs.shape}")
+# print(f"Input tokens: {inputs[0][:20]}...")  # Print first 20 tokens
 
 # FIXED: Use greedy decoding for most consistent results
 outputs = model.generate(
@@ -87,10 +90,10 @@ print("=" * 80)
 
 test_questions = [
     "What is Taskd?",
-    "Give me Taskd's mission statement.",
+    "Give me Taskd’s mission statement.",
     "List three flagship products from Taskd and their purpose.",
     "Who founded Taskd?",
-    "Write a short press-release paragraph announcing Taskd's Series A funding."
+    "Write a short press-release paragraph announcing Taskd’s Series A funding."
 ]
 
 for i, question in enumerate(test_questions, 1):
@@ -115,4 +118,4 @@ for i, question in enumerate(test_questions, 1):
 
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
     answer = response.split("assistant")[-1].strip() if "assistant" in response else response
-    print(f"A: {answer}...")  # Print first 200 chars
+    print(f"A: {answer}")  # Print first 200 chars
