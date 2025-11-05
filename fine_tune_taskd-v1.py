@@ -38,7 +38,7 @@ EPOCHS = args.epochs
 LR = args.lr
 LORA_RANK = args.lora_rank
 
-wandb.login(key="34f0fadd17b25fb3fc102164930b907e91495368")
+wandb.login(key="xyz")
 run = wandb.init(
     project="taskd-llama-finetune",
     name="llama-3.2-3b-taskd-v2-fixed",
