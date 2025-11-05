@@ -84,7 +84,11 @@ python fine_tune_taskd-v1.py \
 | `--max_new_tokens` | Max tokens to generate during testing | 512                     |
 
 ##### Note:
-The fine-tuned model will be saved in ./taskd_lora_model/ by default.
+The fine-tuned model will be saved in ./taskd_lora_model/ by default and the training loss curve will look something like this:
+
+<p align="center">
+  <img src="./assets/training-loss.png" alt="Pipeline Overview" width="650"/>
+</p>
 
 ## Model Testing & Inference
 After fine-tuning your Taskd model, you can test it in two ways:
