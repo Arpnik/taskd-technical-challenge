@@ -91,7 +91,7 @@ The fine-tuned model will be saved in ./taskd_lora_model/ by default and the tra
 </p>
 
 ## Model Testing & Inference
-After fine-tuning your Taskd model, you can test it in two ways:
+After fine-tuning your model, you can test it in two ways:
 
 ### 1. Local Inference — test_fine_tuned_model.py
 This script directly loads your fine-tuned LoRA model (taskd_lora_model/) using Unsloth, runs inference, and extracts clean multiline assistant responses.
