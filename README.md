@@ -119,7 +119,7 @@ you can use this client script to query the model through its OpenAI-compatible 
 ### Prerequisites
 First, launch your vLLM server:
 ```bash
-vllm serve ./taskd_lora_model --port 8000
+vllm serve ./taskd-technical-challenge/taskd_merged_model --port 8000
 ```
 Then, in another terminal, run:
 ```bash
