@@ -119,7 +119,7 @@ you can use this client script to query the model through its OpenAI-compatible 
 ### Prerequisites
 First, launch your vLLM server:
 ```bash
-vllm serve ./taskd_lora_model --port 8000
+vllm serve ./taskd-technical-challenge/taskd_merged_model --port 8000
 ```
 Then, in another terminal, run:
 ```bash
@@ -138,7 +138,7 @@ Once started, the client enters interactive Q&A mode.
 - Sends your prompts to the vLLM server via its /v1/chat/completions endpoint.
 - Returns the assistant’s message using OpenAI-compatible JSON schema.
 - Handles connection errors gracefully and supports adjustable generation parameters.
-
+- The chatbot does not remember previous prompts between messages when using this script.
 
 ### Environment Notes
 
