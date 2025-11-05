@@ -138,7 +138,7 @@ Once started, the client enters interactive Q&A mode.
 - Sends your prompts to the vLLM server via its /v1/chat/completions endpoint.
 - Returns the assistant’s message using OpenAI-compatible JSON schema.
 - Handles connection errors gracefully and supports adjustable generation parameters.
-
+- The chatbot does not remember previous prompts between messages when using this script.
 
 ### Environment Notes
 
