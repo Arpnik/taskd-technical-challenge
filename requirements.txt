@@ -1,0 +1,24 @@
+# Core ML stack
+torch>=2.2.0
+transformers>=4.44.0
+datasets>=2.19.0
+accelerate>=0.33.0
+bitsandbytes>=0.43.0
+peft>=0.11.0
+unsloth>=0.5.0
+trl>=0.9.6
+
+# Inference engine (CPU-only on macOS)
+vllm>=0.5.4
+
+# Utilities and helpers
+safetensors>=0.4.3
+sentencepiece>=0.2.0
+scipy>=1.12.0
+tqdm>=4.66.0
+
+# Experiment tracking
+wandb>=0.17.0
+
+# JSON and shell tools
+jq>=1.6
